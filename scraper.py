@@ -9,7 +9,8 @@ import urllib2
 from datetime import datetime
 from bs4 import BeautifulSoup
 
-#### FUNCTIONS 1.0
+#### FUNCTIONS 1.1
+import requests
 
 def validateFilename(filename):
     filenameregex = '^[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+_[0-9][0-9][0-9][0-9]_[0-9QY][0-9]$'
@@ -37,19 +38,19 @@ def validateFilename(filename):
 
 def validateURL(url):
     try:
-        r = urllib2.urlopen(url)
+        r = requests.get(url, proxies=proxy)
         count = 1
-        while r.getcode() == 500 and count < 4:
+        while r.status_code == 500 and count < 4:
             print ("Attempt {0} - Status code: {1}. Retrying.".format(count, r.status_code))
             count += 1
-            r = urllib2.urlopen(url)
+            r = requests.get(url, proxies=proxy)
         sourceFilename = r.headers.get('Content-Disposition')
 
         if sourceFilename:
             ext = os.path.splitext(sourceFilename)[1].replace('"', '').replace(';', '').replace(' ', '')
         else:
             ext = os.path.splitext(url)[1]
-        validURL = r.getcode() == 200
+        validURL = r.status_code == 200
         validFiletype = ext.lower() in ['.csv', '.xls', '.xlsx', '.pdf']
         return validURL, validFiletype
     except:
@@ -87,11 +88,12 @@ entity_id = "NHTRX8NFT_YASNT_gov"
 url = "http://www.yas.nhs.uk/Publications/Spending.html"
 errors = 0
 data = []
+proxy = {'http': 'http://185.145.202.171:3128'}
 
 #### READ HTML 1.0
 
-html = urllib2.urlopen(url)
-soup = BeautifulSoup(html, 'lxml')
+html = requests.get(url, proxies=proxy)
+soup = BeautifulSoup(html.text, 'lxml')
 
 
 #### SCRAPE DATA
@@ -100,9 +102,9 @@ blocks = soup.find_all('a')
 for block in blocks:
      if '.csv' in block['href'] or '.xls' in block['href'] or '.xlsx' in block['href'] or '.pdf' in block['href']:
         link = 'http://www.yas.nhs.uk/Publications/'+block['href']
-        title = block.text.strip().split()
-        csvMth = title[-2][:3]
-        csvYr = title[-1][-4:]
+        title = block.find_previous('p').text.strip().split()
+        csvMth = title[3][:3]
+        csvYr = title[4][-4:]
         csvMth = convert_mth_strings(csvMth.upper())
         data.append([csvYr, csvMth, link])
 
